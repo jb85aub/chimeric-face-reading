@@ -1,23 +1,34 @@
 ## gaze bias measures for 115 eyetracking subjects; uses eyedat
 
-setwd("~/Documents/chimeric-face-reading/")
-#library(png) dplyr, plyr, lme4, effects, lmerTest, scales
+library(rstudioapi)
+library(png)
+library(plyr)
+library(dplyr)
+library(lme4)
+library(effects)
+library(lmerTest)
+library(scales)
+library(effectsize)
+library(MuMIn) # r.squared
 #rm(list=ls())
+
+## params----
 loadStuff<-1
 savePDF<-0
 doLM<-1
 doFig2<-0
 
 #### IF LOAD STUFF ==1------
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path)) # set working directory to location of script
 if(loadStuff==1){
   faceNumber<-69
-  eyedat<-read.csv("~/Documents/chimeric-face-reading/csv/eyedat_clean.csv")
-  oval<-read.csv("~/Documents/chimeric-face-reading/csv/ovalCoordinates.csv",
+  eyedat<-read.csv("csv/eyedat_clean.csv")
+  oval<-read.csv("csv/ovalCoordinates.csv",
                  header=FALSE)
   # face images on which to superimpose data
-  cface<-readPNG(sprintf("~/Documents/chimeric-face-reading/PNG/O%02d.PNG", faceNumber))
-  lface<-readPNG(sprintf("~/Documents/chimeric-face-reading/PNG/LL%02d.PNG", faceNumber))
-  rface<-readPNG(sprintf("~/Documents/chimeric-face-reading/PNG/RR%02d.PNG", faceNumber))
+  cface<-readPNG(sprintf("PNG/O%02d.PNG", faceNumber))
+  lface<-readPNG(sprintf("PNG/LL%02d.PNG", faceNumber))
+  rface<-readPNG(sprintf("PNG/RR%02d.PNG", faceNumber))
   
   xvar<-"fixX"
   yvar<-"fixY"
@@ -27,7 +38,7 @@ if(loadStuff==1){
 #### IF SAVE PDF ==1------
 if(savePDF==1){
   ovalcol<-"white"
-  pdf("~/Documents/chimeric-face-reading/figures/figure4.pdf", family="Helvetica", 
+  pdf("figures/figure4.pdf", family="Helvetica", 
       width=9, height=6)
 } else{
   ovalcol<-"grey"

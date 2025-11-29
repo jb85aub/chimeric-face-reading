@@ -1,11 +1,16 @@
 ## plot fixation locations for 3 representative subjects per group, fit ellipses to fixation spread
 ## and show on face images (A); calculate ellipse area for all subjects and show as boxplots. (B)
-#library(png) plyr, lme4, effects, lmerTest, ellipse 
+library(rstudioapi)
+library(png)
+library(plyr)
+library(dplyr)
+library(lme4)
+library(effects)
+library(lmerTest)
+library(ellipse)
 # rm(list=ls())
 
 ## params----
-setwd("~/Documents/chimeric-face-reading/")
-eyedat<-read.csv("~/Documents/chimeric-face-reading/csv/eyedat_clean.csv") # eye-tracking subjects only; 115 subjects
 savePDF<-0
 doLM<-0 # set to 1 to run models; not used here
 faceNumber<-69 # face image on which to superimpose data
@@ -14,17 +19,18 @@ xvar<-"fixX" # average fixation x position per trial
 yvar<-"fixY" # average fixation y position per trial
 
 ## load data and other----
-oval<-read.csv("~/Documents/chimeric-face-reading/csv/ovalCoordinates.csv",
-               header=FALSE)
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path)) # set working directory to location of script
+eyedat<-read.csv("csv/eyedat_clean.csv") # eye-tracking subjects only; 115 subjects
+oval<-read.csv("csv/ovalCoordinates.csv", header=FALSE)
 # face images on which to superimpose data
-cface<-readPNG(sprintf("~/Documents/chimeric-face-reading/PNG/O%02d.PNG", faceNumber))
-lface<-readPNG(sprintf("~/Documents/chimeric-face-reading/PNG/LL%02d.PNG", faceNumber))
-rface<-readPNG(sprintf("~/Documents/chimeric-face-reading/PNG/RR%02d.PNG", faceNumber))
+cface<-readPNG(sprintf("PNG/O%02d.PNG", faceNumber))
+lface<-readPNG(sprintf("PNG/LL%02d.PNG", faceNumber))
+rface<-readPNG(sprintf("PNG/RR%02d.PNG", faceNumber))
 
 ## if savePDF----
 if(savePDF==1){
   ovalcol<-"white"
-  pdf("~/Documents/chimeric-face-reading/figures/figure3.pdf", family="Helvetica", 
+  pdf("figures/figure3.pdf", family="Helvetica", 
       width=7.5, height=10)
 } else{
   ovalcol<-"grey"

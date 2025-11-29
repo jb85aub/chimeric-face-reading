@@ -1,16 +1,24 @@
 ## gaze-behaviour associations; trial-level analyses
 
-# library MuMIn (conditional R-squared for fixed and random effects variance)
+library(rstudioapi)
+library(plyr)
+library(dplyr)
+library(lme4)
+library(car)
+library(effects)
+library(lmerTest)
+library(gplots)
+library(MuMIn) #(conditional R-squared for fixed and random effects variance)
 #rm(list=ls())
-setwd("~/Documents/chimeric-face-reading")
+
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path)) # set working directory to location of script
 
 doModels<-1
-aggregateModels<-0 # set to 0 for trialwise analyses
 savePDF<-0
 doBins<-0
 numBins<-10
 numQuantiles<-10
-eyedat<-read.csv("~/Documents/chimeric-face-reading/csv/eyedat_clean.csv")
+eyedat<-read.csv("csv/eyedat_clean.csv")
 eyedat$dwellTime<-eyedat$dwellTime/1000
 ymin<-0.1
 ymax<-0.9
@@ -19,7 +27,7 @@ ymax<-0.9
 if(savePDF==1){
   ovalcol<-"white"
 
-  pdf("~/Documents/chimeric-face-reading/figures/figure5.pdf", family="Helvetica", 
+  pdf("figures/figure5.pdf", family="Helvetica", 
       width=9, height=4)
 } 
 
@@ -31,48 +39,26 @@ if(doModels==1){
   tar$faceNumber<-revalue(tar$faceNumber, c("O1"="O01", "O4"="O04", "O8"="O08" ))
   tar$fixX<-round(tar$fixX, 2)
   
-  if(aggregateModels==1){
-    # no effect in the aggregate data, with or without stimulus conditions
-    tar2<-aggregate(correct~id+angle2+hemifield+im, data=tar, mean)
-    tar3<-aggregate(fixX~id+angle2+hemifield+im, data=tar, mean)
-    tar2$fixX<-tar3$fixX
-    lm0<-lmer(correct~angle2*fixX+(1|id), data=tar2)
-    summary(lm0)
-    anova(lm0) # fixX p = 0.93
-    r.squaredGLMM(lm0) # r2m = 0.04, r2c = 0.22
-    efx.target<-effect("fixX", lm0,
-                       xlevels=list(fixX=round(seq(-2,2, length.out=9),2)))
-    
-    # for nonsignificant language x fixation interaction, shown at extremes of x
-    efall.target<-effect("angle2:fixX", lm0,
-                         xlevels=list(angle2=round(seq(-1,1, length.out=3),3), 
-                                      fixX=round(seq(-2,2, length.out=2),2)))
-    
-    efx.target<-data.frame(efx.target)
-    efalldat.target<-data.frame(efall.target)
-    
-  } else{
-    # single trial analyses
-    # nFixations doesn't improve the model fit and adds weirdness; jan 2025
-    # nFixations removed from model: anova confirms no significant contribution; august 2025
-    
-    lm.target<-glmer(correct~angle2*fixX+(1|id), data=tar, family="binomial",
-                     control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=10000)))
-    print("bias~fixX")
-    print(Anova(lm.target, type='III'))
-    
-    # for main effect of fixation
-    efx.target<-effect("fixX", lm.target,
-                       xlevels=list(fixX=round(seq(-2,2, length.out=9),2)))
-    
-    # for nonsignificant language x fixation interaction, shown at extremes of x
-    efall.target<-effect("angle2:fixX", lm.target,
-                         xlevels=list(angle2=round(seq(-1,1, length.out=3),3), 
-                                      fixX=round(seq(-2,2, length.out=2),2)))
-    
-    efx.target<-data.frame(efx.target)
-    efalldat.target<-data.frame(efall.target)
-    }
+  # single trial analyses
+  # nFixations doesn't improve the model fit and adds weirdness; jan 2025
+  # nFixations removed from model: anova confirms no significant contribution; august 2025
+  
+  lm.target<-glmer(correct~angle2*fixX+(1|id), data=tar, family="binomial",
+                   control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=10000)))
+  print("bias~fixX")
+  print(Anova(lm.target, type='III'))
+  
+  # for main effect of fixation
+  efx.target<-effect("fixX", lm.target,
+                     xlevels=list(fixX=round(seq(-2,2, length.out=9),2)))
+  
+  # for nonsignificant language x fixation interaction, shown at extremes of x
+  efall.target<-effect("angle2:fixX", lm.target,
+                       xlevels=list(angle2=round(seq(-1,1, length.out=3),3), 
+                                    fixX=round(seq(-2,2, length.out=2),2)))
+  
+  efx.target<-data.frame(efx.target)
+  efalldat.target<-data.frame(efall.target)
 
   ### 2. nFixation LL-RR -----
   xmin<--1
@@ -80,133 +66,81 @@ if(doModels==1){
   summin<--1
   summax<-1
   
-  if(aggregateModels==1){
-    ## first aggregate nFixations per face then compute the difference
-    tmpdat<-aggregate(correct~id+angle2+group+face, data=nontar, mean)
-    tmpdat2<-aggregate(nFixations~id+angle2+group+face, data=nontar, mean)
-    tmpdat$nFixations<-tmpdat2$nFixations
-    
-    nfixdiff0 <- tmpdat %>%
-      filter(face %in% c("1. LL", "3. RR")) %>%
-      group_by(id, angle2, group, im) %>%
-      filter(n_distinct(face) == 2) %>%
-      summarise(
-        nfix_LL = first(nFixations[face == "1. LL"], default = NA),
-        nfix_RR = first(nFixations[face == "3. RR"], default = NA),
-        nfixdiff = nfix_LL - nfix_RR,
-        nfixsum  = nfix_LL + nfix_RR,
-        correct  = first(correct[face == "1. LL"], default = NA)
-      ) %>%
-      ungroup()
-    nfixdiff0<-as.data.frame(nfixdiff0)
-    nfixdiff0$nfixsumscaled <- as.vector(scale(nfixdiff0$nfixsum))
-    
-    # ## aggregate model using the trialwise differences computed in the next step;
-    # tmpdat<-aggregate(correct~id+angle2+group+im, data=nfixdiff, mean)
-    # tmpdat2<-aggregate(nfixdiff~id+angle2+group+im, data=nfixdiff, mean)
-    # tmpdat3<-aggregate(nfixsum~id+angle2+group+im, data=nfixdiff, mean)
-    # tmpdat$nfixdiff<-tmpdat2$nfixdiff
-    # tmpdat$nfixsum<-tmpdat3$nfixsum
-    # tmpdat$nfixsumscaled <- as.vector(scale(tmpdat$nfixsum))
-    # 
-    lm.nfix.0<-lmer(correct~nfixdiff*nfixsumscaled*angle2+(1|id), data=nfixdiff0)
-    Anova(lm.nfix.0, type='III')
-    r.squaredGLMM(lm.nfix.0)
-    ef.nfixdiffangle<-effect("nfixdiff:angle2", lm.nfix.0,
-                             xlevels=list(nfixdiff=seq(xmin,xmax, length.out=10),
-                                          angle2=seq(-1, 1, length.out=3)))
-    efnfixdiffangle<-data.frame(ef.nfixdiffangle)
+  xmin<--2
+  xmax<-2
+  summin<--1
+  summax<-1
+  
+  # single-trial calculations
+  nfixdiff <- eyedat %>%
+    filter(nFixations < 11) %>%
+    filter(face %in% c("1. LL", "3. RR")) %>%
+    group_by(id, TrialNumber) %>%
+    filter(n_distinct(face) == 2) %>%
+    summarise(
+      nfix_LL = first(nFixations[face == "1. LL"], default = NA),    
+      nfix_RR = first(nFixations[face == "3. RR"], default = NA),   
+      nfixdiff = nfix_LL - nfix_RR,
+      nfixsum = nfix_LL + nfix_RR,
+      id = first(id[face == "1. LL"], default = NA),
+      im = first(im[face == "1. LL"], default = NA), 
+      firstfix = first(firstFixNum[face == "1. LL"], default = NA),
+      trial = first(TrialNumber[face == "1. LL"], default = NA),
+      angle2 = first(angle2[face == "1. LL"], default = NA),                        
+      correct = first(correct[face == "1. LL"], default = NA),
+      group = first(group[face == "1. LL"], default = NA)
+    ) %>%
+    ungroup()
+  nfixdiff<-as.data.frame(nfixdiff)
+  # Scale nfixsum and store as a vector; unscaled causes model not to converge
+  nfixdiff$nfixsumscaled <- as.vector(scale(nfixdiff$nfixsum))
+  
+  # is the difference in n fixations on LL v. RR related to language score? no; august 2025
+  # lm.nfix.1<-lmer(nfixdiff~angle2*im+(1|id), data=nfixdiff)
+  
+  lm.nfix<-glmer(correct~nfixdiff*nfixsumscaled*angle2+(1|id), data=nfixdiff, 
+                 family="binomial",
+                 control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=10000)))
+  ef.nfixdiffangle<-effect("nfixdiff:angle2", lm.nfix,
+                           xlevels=list(nfixdiff=seq(xmin,xmax, length.out=10),
+                                        angle2=seq(-1, 1, length.out=3)))
+  efnfixdiffangle<-data.frame(ef.nfixdiffangle)
+  print("bias~nfixdiff")
+  print(Anova(lm.nfix, type='III'))
 
-  } else{
-    xmin<--2
-    xmax<-2
-    summin<--1
-    summax<-1
-    
-    # single-trial calculations
-    nfixdiff <- eyedat %>%
-      filter(nFixations < 11) %>%
-      filter(face %in% c("1. LL", "3. RR")) %>%
-      group_by(id, TrialNumber) %>%
-      filter(n_distinct(face) == 2) %>%
-      summarise(
-        nfix_LL = first(nFixations[face == "1. LL"], default = NA),    
-        nfix_RR = first(nFixations[face == "3. RR"], default = NA),   
-        nfixdiff = nfix_LL - nfix_RR,
-        nfixsum = nfix_LL + nfix_RR,
-        id = first(id[face == "1. LL"], default = NA),
-        im = first(im[face == "1. LL"], default = NA), 
-        firstfix = first(firstFixNum[face == "1. LL"], default = NA),
-        trial = first(TrialNumber[face == "1. LL"], default = NA),
-        angle2 = first(angle2[face == "1. LL"], default = NA),                        
-        correct = first(correct[face == "1. LL"], default = NA),
-        group = first(group[face == "1. LL"], default = NA)
-      ) %>%
-      ungroup()
-    nfixdiff<-as.data.frame(nfixdiff)
-    # Scale nfixsum and store as a vector; unscaled causes model not to converge
-    nfixdiff$nfixsumscaled <- as.vector(scale(nfixdiff$nfixsum))
-    
-    # is the difference in n fixations on LL v. RR related to language score? no; august 2025
-    # lm.nfix.1<-lmer(nfixdiff~angle2*im+(1|id), data=nfixdiff)
-    
-    lm.nfix<-glmer(correct~nfixdiff*nfixsumscaled*angle2+(1|id), data=nfixdiff, 
-                   family="binomial",
-                   control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=10000)))
-    ef.nfixdiffangle<-effect("nfixdiff:angle2", lm.nfix,
-                             xlevels=list(nfixdiff=seq(xmin,xmax, length.out=10),
-                                          angle2=seq(-1, 1, length.out=3)))
-    efnfixdiffangle<-data.frame(ef.nfixdiffangle)
-    print("bias~nfixdiff")
-    print(Anova(lm.nfix, type='III'))
-  }
- 
   
    ### 3. first & last fixations------
   
-  if(aggregateModels==1){
-    
-    ## first aggregate measures per face then compute the difference
-    tmpdat<-aggregate(correct~id+angle2+group+face, data=nontar, mean)
-    tmpdat2<-aggregate(firstFixNum~id+angle2+group+face, data=nontar, mean)
-    tmpdat3<-aggregate(lastFixNum~id+angle2+group+face, data=nontar, mean)
-    tmpdat$firstFixNum<-tmpdat2$firstFixNum
-    tmpdat$lastFixNum<-tmpdat3$lastFixNum
-    #....this doesn't make sense to do on average
-    
-  } else{
-    
-    df <- nontar %>%
-      group_by(id, TrialNumber) %>%
-      mutate(
-        firstfixyn = as.integer(firstFixNum == min(firstFixNum)),
-        lastfixyn  = as.integer(lastFixNum == max(lastFixNum))
-      ) %>%
-      ungroup()
-    df<-data.frame(df)
-    df<-df[df$face=="1. LL",]
-    
-    lm.saccade<-glmer(correct~angle2*firstfixyn*lastfixyn+(1|id), data=df, family="binomial",
-               control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=10000)))
-    print(Anova(lm1, type='III'))
-    ef3.lm1<-effect("firstfixyn:lastfixyn", lm.saccade,
+  df <- nontar %>%
+    group_by(id, TrialNumber) %>%
+    mutate(
+      firstfixyn = as.integer(firstFixNum == min(firstFixNum)),
+      lastfixyn  = as.integer(lastFixNum == max(lastFixNum))
+    ) %>%
+    ungroup()
+  df<-data.frame(df)
+  df<-df[df$face=="1. LL",]
+  
+  lm.saccade<-glmer(correct~angle2*firstfixyn*lastfixyn+(1|id), data=df, family="binomial",
+                    control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=10000)))
+  # print(Anova(lm1, type='III'))
+  ef3.lm1<-effect("firstfixyn:lastfixyn", lm.saccade,
+                  xlevels=list(firstfixyn=seq(0,1, length.out=2),
+                               lastfixyn=seq(0, 1, length.out=2)))
+  ef1.lm1<-effect("angle2:firstfixyn", lm.saccade,
+                  xlevels=list(firstfixyn=seq(0,1, length.out=2),
+                               angle2=seq(-1, 1, length.out=10)))
+  ef2.lm1<-effect("angle2:lastfixyn", lm.saccade,
+                  xlevels=list(lastfixyn=seq(0,1, length.out=2),
+                               angle2=seq(-1, 1, length.out=10)))
+  efall.lm1<-effect("angle2:firstfixyn:lastfixyn", lm.saccade,
                     xlevels=list(firstfixyn=seq(0,1, length.out=2),
-                                 lastfixyn=seq(0, 1, length.out=2)))
-    ef1.lm1<-effect("angle2:firstfixyn", lm.saccade,
-                    xlevels=list(firstfixyn=seq(0,1, length.out=2),
-                                 angle2=seq(-1, 1, length.out=10)))
-    ef2.lm1<-effect("angle2:lastfixyn", lm.saccade,
-                    xlevels=list(lastfixyn=seq(0,1, length.out=2),
-                                 angle2=seq(-1, 1, length.out=10)))
-    efall.lm1<-effect("angle2:firstfixyn:lastfixyn", lm.saccade,
-                      xlevels=list(firstfixyn=seq(0,1, length.out=2),
-                                   lastfixyn=seq(0,1, length.out=2),
-                                   angle2=seq(-1, 1, length.out=3)))
-    ef1lm1<-data.frame(ef1.lm1)
-    ef2lm1<-data.frame(ef2.lm1)
-    ef3lm1<-data.frame(ef3.lm1)
-    efallm1<-data.frame(efall.lm1)
-  }
+                                 lastfixyn=seq(0,1, length.out=2),
+                                 angle2=seq(-1, 1, length.out=3)))
+  ef1lm1<-data.frame(ef1.lm1)
+  ef2lm1<-data.frame(ef2.lm1)
+  ef3lm1<-data.frame(ef3.lm1)
+  efallm1<-data.frame(efall.lm1)
 
 }
 

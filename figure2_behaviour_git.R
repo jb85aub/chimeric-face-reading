@@ -1,5 +1,13 @@
 # figure 2: behavioural data and models; uses biasdat, langdat
 
+library(rstudioapi)
+library(lmerTest)
+library(effects)
+library(effectsize)
+library(MuMIn) # r.squared
+library(car)
+library(plyr)
+
 # library(extrafont)
 # loadfonts()
 # library(wesanderson)
@@ -7,16 +15,12 @@
 # library(tidyr)
 # library(BurStMisc)
 # library(tidyverse) # do this or langdat gets messed up
-# library(effects)
-# library(effectsize)
-# library(MuMIn) # r.squared
-# library(lmerTest)
-# library(car)
-setwd("~/Documents/chimeric-face-reading")
-rm(list=ls())
+
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path)) # set working directory to location of script
+# rm(list=ls())
 #source("loadData_git.R")
-biasdat<-read.csv("~/Documents/chimeric-face-reading/csv/biasdat_clean.csv")
-langdat<-read.csv("~/Documents/chimeric-face-reading/csv/langdat_clean.csv")
+biasdat<-read.csv("csv/biasdat_clean.csv")
+langdat<-read.csv("csv/langdat_clean.csv")
 
 runModels<-1 # set to 0 to tinker with figures once models are run
 aggregateModel<-1 # aggregate or trialwise model; aggregate reported
@@ -34,7 +38,7 @@ if(removeLowLang==1){
 
 ### OPEN PDF-----
 if(savePDF==1){
-  pdf("~/Documents/chimeric-face-reading/figures/figure2.pdf",
+  pdf("figures/figure2.pdf",
       family="Helvetica",
       width=10, height=10)
 }
